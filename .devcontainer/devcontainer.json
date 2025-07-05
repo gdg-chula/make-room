@@ -1,0 +1,19 @@
+// For format details, see https://aka.ms/devcontainer.json
+{
+    "name": "Python 3",
+    "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bullseye",
+
+    // Use 'postCreateCommand' to run commands after the container is created.
+    // We use ${containerWorkspaceFolder} to ensure paths are always correct.
+    "postCreateCommand": "python3 -m venv .venv && .venv/bin/pip install -r ${containerWorkspaceFolder}/requirements.txt",
+
+    // Configure tool-specific properties.
+    "customizations": {
+        "vscode": {
+            // Set the default Python interpreter using the absolute path.
+            "settings": {
+                "python.defaultInterpreterPath": ".venv/bin/python"
+            }
+        }
+    }
+}
