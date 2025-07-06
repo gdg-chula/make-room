@@ -20,11 +20,11 @@ class Onboarding(commands.Cog):
         
         # The embed to be sent
         join_embed = discord.Embed(
-            title="👋 Welcome & Setup!",
+            title="🥳 Greeting!",
             description=(
                 "Thanks for adding me to your server! I'm here to help you manage things.\n\n"
                 "To get started, a moderator can use the `button` below "
-                "to create a special category for me to work in."
+                "to create a deficate category for me to work in."
             ),
             color=discord.Color.orange() # Use discord's built-in colors
         )
