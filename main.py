@@ -23,7 +23,7 @@ async def on_ready():
 async def load_cogs():
     """Load all cog extensions"""
     cogs_to_load = [
-        'cogs.general'
+        'cogs.onboarding'
     ]
 
     for cog in cogs_to_load:
