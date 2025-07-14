@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 
-
 class Onboarding(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -54,4 +53,4 @@ class Onboarding(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Onboarding(bot))
-    print("✅ Omboarding cog setup complete")
+    print("✅ Onboarding cog setup complete")
