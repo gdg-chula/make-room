@@ -4,8 +4,7 @@ import os
 from dotenv import load_dotenv
 
 class Client(commands.Bot):
-    def __init__(self):
-
+    def __init__(self: commands.Bot):
         # Load environment variables from .env file
         print("🔍 Loading environment variables...")
         load_dotenv()
@@ -27,7 +26,7 @@ class Client(commands.Bot):
             'cogs.onboarding'
         ]
 
-    async def setup_hook(self):
+    async def setup_hook(self: commands.Bot):
         """
         This special method is called once after the bot logs in but before
         it connects to the websocket. It's the ideal place to load extensions.
@@ -42,14 +41,14 @@ class Client(commands.Bot):
         print("😆 All cogs are loaded 😆")
 
 
-    async def on_ready(self):
+    async def on_ready(self: commands.Bot):
         """
         This event is called when the bot has successfully connected to Discord.
         """
         print(f"🔒 Logged in as {self.user} (ID: {self.user.id})")
         print("🍀 Everything looks good!")
 
-    def run_client(self):
+    def run_client(self: commands.Bot):
         """
         Starts the bot client with the loaded token.
         """
