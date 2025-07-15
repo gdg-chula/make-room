@@ -23,7 +23,8 @@ class Client(commands.Bot):
 
         # A list of cogs to load at startup
         self.cogs_to_load = [
-            'cogs.onboarding'
+            'cogs.onboarding',
+            'cogs.create_category',
         ]
 
     async def setup_hook(self: commands.Bot):
