@@ -2,9 +2,9 @@ import discord
 from discord.ext import commands
 
 class Onboarding(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
-    
+    def __init__(self, client: commands.Bot):
+        self.client = client
+
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
         await self._send_setup_message(guild)
@@ -45,12 +45,12 @@ class Onboarding(commands.Cog):
         if target_channel:
             try:
                 await target_channel.send(embed=join_embed)
-                print(f"Sent setup message to #{target_channel.name} in {guild.name}")
+                print(f"Sent setup message to #{target_channel.name} in {guild.name} (system_channel: {target_channel == guild.system_channel})")
             except discord.Forbidden:
                 print(f"Could not send message to #{target_channel.name} in {guild.name}: Missing Permissions")
         else:
             print(f"Could not find a suitable channel in {guild.name} to send setup message.")
 
-async def setup(bot):
-    await bot.add_cog(Onboarding(bot))
+async def setup(client: commands.Bot):
+    await client.add_cog(Onboarding(client))
     print("✅ Onboarding cog setup complete")
