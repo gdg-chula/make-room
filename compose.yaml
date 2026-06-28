@@ -3,5 +3,5 @@ services:
     container_name: makeroom-bot
     build: .
     environment:
-      - DISCORD_TOKEN=$DISCORD_TOKEN
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
     restart: unless-stopped

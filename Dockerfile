@@ -1,10 +1,15 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 
-# copy files to container
+RUN groupadd -r bot && useradd -r -g bot makeroom
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
 
-# install python dependencies
-RUN pip install -r requirements.txt
+USER makeroom
 
-# run main bot script
 CMD ["python3", "main.py"]
