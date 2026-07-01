@@ -4,13 +4,7 @@ from dotenv import load_dotenv
 import os
 import logging
 
-# --- LOGGING SETUP ---
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s | %(levelname)-8s | %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger('MakeRoomBot')
+logger = logging.getLogger('Main')
 
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -61,6 +55,7 @@ class MakeRoomBot(commands.Bot):
                 await interaction.response.send_message(error_msg, ephemeral=True)
             logger.error(f"Command Error: {error}")
 
-bot = MakeRoomBot()
-discord.utils.setup_logging() 
-bot.run(DISCORD_TOKEN, log_handler=None)
+if __name__ == "__main__":
+    bot = MakeRoomBot()
+    discord.utils.setup_logging() 
+    bot.run(DISCORD_TOKEN, log_handler=None)
