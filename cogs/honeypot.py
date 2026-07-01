@@ -3,12 +3,57 @@ from discord.ext import commands
 from discord import app_commands
 import logging
 
-logger = logging.getLogger('MakeRoomBot')
+logger = logging.getLogger('HoneyPot')
 
 class HoneypotCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.honeypot_channel_name = "dusty-locker"
+
+    async def setup_honeypot_channel(self, guild: discord.Guild, existing_channel: discord.TextChannel = None) -> discord.TextChannel:
+        """Helper function to create or recreate the honeypot channel."""
+        # Save the category and position so the new channel stays in the same place
+        category = existing_channel.category if existing_channel else None
+        position = existing_channel.position if existing_channel else None
+
+        if existing_channel:
+            await existing_channel.delete(reason="Re-initializing honeypot (ID refresh)")
+        
+        honeypot_channel = await guild.create_text_channel(
+            self.honeypot_channel_name,
+            category=category,
+            position=position
+        )
+        await honeypot_channel.set_permissions(guild.default_role, send_messages=True)
+
+        honeypot_embed = discord.Embed(
+            title="What is this place? This locker is so dusty... 😶‍🌫️",
+            description=(
+                f"There's a pile of dangerous dust inside, and it's best to leave it alone!\n "
+                f"Better not to touch this locker or {self.bot.user.name} will be very upset! 😠\n\n"
+                f"Sending a message here will trigger an automatic ban. 🚫"
+            ),
+        )
+        honeypot_embed.set_footer(text=f"with love ^ ^\n{self.bot.user.name}✨")
+
+        await honeypot_channel.send(embed=honeypot_embed)
+        return honeypot_channel
+
+    async def refresh_honeypots(self, guild: discord.Guild = None):
+        """Refresh honeypot after ban to refresh channel IDs."""
+        await self.bot.wait_until_ready()
+        
+        existing_channel = discord.utils.get(guild.text_channels, name=self.honeypot_channel_name)
+
+        if existing_channel:
+            try:
+                new_channel = await self.setup_honeypot_channel(guild, existing_channel)
+                logger.info(
+                    f"Successfully refreshed honeypot in guild: {guild.name} "
+                    f"({existing_channel.id} -> {new_channel.id})"
+                )
+            except Exception as e:
+                logger.error(f"Failed to refresh honeypot in {guild.name}: {e}")
 
     @app_commands.command(name="init_honeypot", description="Initialize the honeypot channel with a warning message.")
     @app_commands.checks.has_permissions(administrator=True) 
@@ -18,23 +63,8 @@ class HoneypotCog(commands.Cog):
 
         try:
             existing_channel = discord.utils.get(guild.text_channels, name=self.honeypot_channel_name)
-            if existing_channel:
-                await existing_channel.delete(reason="Re-initializing honeypot")
+            honeypot_channel = await self.setup_honeypot_channel(guild, existing_channel)
             
-            honeypot_channel = await guild.create_text_channel(self.honeypot_channel_name)
-            await honeypot_channel.set_permissions(guild.default_role, send_messages=True)
-
-            embed = discord.Embed(
-                title="What is this place? This locker is so dusty... 😶‍🌫️",
-                description=(
-                    f"There's a pile of dangerous dust inside, and it's best to leave it alone!\n "
-                    f"Better not to touch this locker or {self.bot.user.name} will be very upset! 😠\n\n"
-                    f"Sending a message here will trigger an automatic ban. 🚫"
-                ),
-            )
-            embed.set_footer(text=f"with love ^ ^, {self.bot.user.name}✨")
-
-            await honeypot_channel.send(embed=embed)
             await interaction.followup.send(f"✅ Honeypot ready in {honeypot_channel.mention}.", ephemeral=True)
             
         except discord.Forbidden:
@@ -77,7 +107,7 @@ class HoneypotCog(commands.Cog):
 
         try:
             await message.author.ban(reason="Honeypot triggered", delete_message_seconds=600)
-            logger.info(f"User {message.author} banned via honeypot.")
+            logger.info(f"User {message.author} banned via honeypot on {message.guild.name}.")
             
             if mod_channel:
                 embed = discord.Embed(
@@ -94,8 +124,11 @@ class HoneypotCog(commands.Cog):
                     embed.set_author(name=message.author.name)
                     
                 await mod_channel.send(embed=embed)
+                await self.refresh_honeypots(message.guild)  # Refresh honeypot after ban to refresh channel IDs
+
         except Exception as e:
             logger.error(f"Failed to ban user {message.author}: {e}")
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(HoneypotCog(bot))
