@@ -4,6 +4,7 @@
 .devcontainer
 .dockerignore
 Dockerfile
+.github
 
 # OS specific file
 .DS_Store
@@ -17,3 +18,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# etc
+LICENSE
+README.md

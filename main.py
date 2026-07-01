@@ -1,62 +1,66 @@
 import discord
 from discord.ext import commands
-import os
 from dotenv import load_dotenv
+import os
+import logging
 
-class Client(commands.Bot):
-    def __init__(self: commands.Bot):
-        # Load environment variables from .env file
-        print("🔍 Loading environment variables...")
-        load_dotenv()
-        self.token = os.getenv("DISCORD_TOKEN")
+# --- LOGGING SETUP ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)-8s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger('MakeRoomBot')
 
-        # Ensure the token is available
-        if not self.token:
-            raise ValueError("No DISCORD_TOKEN found in environment variables.")
-        else:
-            print("✅ DISCORD_TOKEN loaded successfully")
-        
-        # Define intents and initialize the parent Bot class
+load_dotenv()
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+
+class MakeRoomBot(commands.Bot):
+    def __init__(self):
+        # Enable intents that are necessary for bot's functionality
         intents = discord.Intents.default()
         intents.message_content = True
-        super().__init__(command_prefix='!', intents=intents)
+        intents.guilds = True
+        intents.voice_states = True
 
-        # A list of cogs to load at startup
-        self.cogs_to_load = [
-            'cogs.onboarding'
-        ]
+        self.cogs_to_load = (
+            "cogs.events",
+            "cogs.makeroom",
+            "cogs.honeypot",
+        )
 
-    async def setup_hook(self: commands.Bot):
-        """
-        This special method is called once after the bot logs in but before
-        it connects to the websocket. It's the ideal place to load extensions.
-        """
-        print("⏳ Loading cogs...")
-        for cog in self.cogs_to_load:
+        # command_prefix is set to when_mentioned, so the bot responds to mentions
+        super().__init__(command_prefix=commands.when_mentioned, intents=intents)
+
+    async def setup_hook(self):
+        self.tree.on_error = self.on_app_command_error
+        
+        # Load extensions explicitly
+        for extension in self.cogs_to_load:
             try:
-                await self.load_extension(cog)
-                print(f"✅ Loaded {cog}")
+                await self.load_extension(extension)
+                logger.info(f"Loaded extension: {extension}")
             except Exception as e:
-                print(f"❌ Failed to load {cog}: {e}")
-        print("😆 All cogs are loaded 😆")
+                logger.error(f"Failed to load extension {extension}: {e}")
+        logger.info("All extensions loaded successfully.")
 
-
-    async def on_ready(self: commands.Bot):
-        """
-        This event is called when the bot has successfully connected to Discord.
-        """
-        print(f"🔒 Logged in as {self.user} (ID: {self.user.id})")
-        print("🍀 Everything looks good!")
-
-    def run_client(self: commands.Bot):
-        """
-        Starts the bot client with the loaded token.
-        """
         try:
-            self.run(self.token)
+            synced = await self.tree.sync()
+            logger.info(f"Synced {len(synced)} command(s) globally.")
         except Exception as e:
-            print(f"Failed to start bot: {e}")
+            logger.error(f"Error syncing commands: {e}")
 
-if __name__ == "__main__":
-    client = Client()
-    client.run_client()
+    async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        if isinstance(error, discord.app_commands.MissingPermissions):
+            await interaction.response.send_message("⛔ You don't have the required permissions.", ephemeral=True)
+        else:
+            error_msg = "Oops! Something went wrong while running that command."
+            if interaction.response.is_done():
+                await interaction.followup.send(error_msg, ephemeral=True)
+            else:
+                await interaction.response.send_message(error_msg, ephemeral=True)
+            logger.error(f"Command Error: {error}")
+
+bot = MakeRoomBot()
+discord.utils.setup_logging() 
+bot.run(DISCORD_TOKEN, log_handler=None)
