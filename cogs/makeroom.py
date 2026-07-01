@@ -45,11 +45,10 @@ class MakeRoom(commands.Cog):
         # 1. User joins the "+ Create Room" channel
         if after.channel and after.channel.name == "+ Create Room":
             await self.create_new_room(member, after)
-            return # We stop here because the creation logic handles everything else
+            return 
         
-        # 2. User joins an existing custom room (e.g., gets dragged in by an admin)
+        # 2. User joins an existing custom room
         if after.channel and after.channel.category and after.channel.category.name == self.category_name:
-            # If the room is private, grant them text chat access automatically
             if not after.channel.permissions_for(member.guild.default_role).view_channel:
                 await after.channel.set_permissions(member, view_channel=True)
 
@@ -63,16 +62,12 @@ class MakeRoom(commands.Cog):
                 except discord.DiscordException:
                     pass
             else:
-                # If the room isn't empty but it IS private, revoke text access for the person who just left
                 if not before.channel.permissions_for(member.guild.default_role).view_channel:
-                    # We only want to remove their permission if they aren't the room creator
-                    # (You can check the channel name to loosely verify, or just let it reset since the creator 
-                    # usually leaves last anyway)
                     await before.channel.set_permissions(member, overwrite=None)
 
-    @app_commands.command(name="init_category", description="Create the MakeRoom temporary voice category.")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def init_category(self, interaction: discord.Interaction):
+    # --- NEW HELPER METHOD ---
+    async def _setup_category_logic(self, interaction: discord.Interaction):
+        """The core logic for creating the category, shared by the command and the button."""
         await interaction.response.defer(ephemeral=True)
         guild = interaction.guild
         category = discord.utils.get(guild.categories, name=self.category_name)
@@ -103,6 +98,12 @@ class MakeRoom(commands.Cog):
             await interaction.followup.send(embed=embed, ephemeral=True)
         except discord.Forbidden:
             await interaction.followup.send("I do not have permission to create categories or channels.", ephemeral=True)
+
+    @app_commands.command(name="init_category", description="Create the MakeRoom temporary voice category.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def init_category(self, interaction: discord.Interaction):
+        # Calls the helper method
+        await self._setup_category_logic(interaction)
 
     async def create_new_room(self, member: discord.Member, after: discord.VoiceState):
         guild = member.guild
@@ -156,7 +157,6 @@ class RoomControlView(discord.ui.View):
             color=discord.Color.green()
         )
 
-        # Check if the person clicking the button is the room creator
         if interaction.user.id != self.creator_id:
             await interaction.response.send_message(
                 embed=warning_embed,
@@ -165,14 +165,8 @@ class RoomControlView(discord.ui.View):
             return
         
         if isinstance(channel, discord.VoiceChannel):
-            # IF IT IS CURRENTLY PUBLIC -> MAKE IT PRIVATE
             if channel.permissions_for(interaction.guild.default_role).view_channel:
-                
-                # 1. Deny the @everyone role from seeing the channel
                 await channel.set_permissions(interaction.guild.default_role, view_channel=False)
-                
-                # 2. Grant explicit view access to everyone currently inside the voice channel
-                # This prevents the "Message could not be delivered" error!
                 for member in channel.members:
                     await channel.set_permissions(member, view_channel=True)
                     
@@ -182,14 +176,9 @@ class RoomControlView(discord.ui.View):
                     ephemeral=True
                 )
                 
-            # IF IT IS CURRENTLY PRIVATE -> MAKE IT PUBLIC
             else:
-                # 1. Allow the @everyone role to see the channel again
                 await channel.set_permissions(interaction.guild.default_role, view_channel=True)
-                
-                # 2. Clean up the explicit member overrides to keep server permissions tidy
                 for member in channel.members:
-                    # Setting overwrite to None removes the user-specific override
                     await channel.set_permissions(member, overwrite=None)
                     
                 await interaction.response.send_message(
@@ -205,7 +194,12 @@ class CreateCategoryView(discord.ui.View):
 
     @discord.ui.button(label="✨ Create Category", style=discord.ButtonStyle.primary, custom_id="create_category_btn")
     async def create_category_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.cog.init_category(interaction)
+        if not interaction.permissions.administrator:
+            await interaction.response.send_message("⛔ You need Administrator permissions to perform this action.", ephemeral=True)
+            return
+            
+        # Calls the shared helper method instead of the slash command
+        await self.cog._setup_category_logic(interaction)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(MakeRoom(bot))
