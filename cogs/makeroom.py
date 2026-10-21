@@ -13,6 +13,7 @@ class MakeRoom(commands.Cog):
     # This method ensures the "Create Category" button works even after the bot restarts
     async def cog_load(self):
         self.bot.add_view(CreateCategoryView(self))
+        self.bot.add_view(RoomControlView())
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
@@ -124,68 +125,59 @@ class MakeRoom(commands.Cog):
                 description="Toggle the visibility of this voice channel.",
                 color=discord.Color.og_blurple()
             )
+            control_embed.set_footer(text=f"Owner: {member.id}")
 
-            await new_channel.send(embed=control_embed, view=RoomControlView(member.id))
+            await new_channel.send(embed=control_embed, view=RoomControlView())
             logger.info(f"Created new room: {channel_name} in {guild.name}")
         except Exception as e:
             logger.error(f"Error creating room: {e}")
 
 class RoomControlView(discord.ui.View):
-    def __init__(self, creator_id: int):
+    def __init__(self):
         super().__init__(timeout=None)
-        self.creator_id = creator_id
 
     @discord.ui.button(label="Toggle Visibility", style=discord.ButtonStyle.primary, custom_id="toggle_visibility")
     async def toggle_visibility(self, interaction: discord.Interaction, button: discord.ui.Button):
         channel = interaction.channel
+        embeds = interaction.message.embeds if interaction.message else []
+        footer = embeds[0].footer.text if embeds and embeds[0].footer else None
+        owner_tag = f"Owner: {interaction.user.id}"
 
-        warning_embed = discord.Embed(
-            title="⚠️ Permission Denied",
-            description="You can only manage the room you created.",
-            color=discord.Color.red()
-        )
-        
-        private_embed = discord.Embed(
-            title="😶‍🌫️ Room Privacy",
-            description="This room is now private.",
-            color=discord.Color.red()
-        )
-
-        public_embed = discord.Embed(
-            title="🥳 Room Privacy",
-            description="This room is now public.",
-            color=discord.Color.green()
-        )
-
-        if interaction.user.id != self.creator_id:
+        if footer != owner_tag:
+            warning_embed = discord.Embed(
+                title="⚠️ Permission Denied",
+                description="You can only manage the room you created.",
+                color=discord.Color.red()
+            )
             await interaction.response.send_message(
                 embed=warning_embed,
                 ephemeral=True
             )
             return
-        
+
         if isinstance(channel, discord.VoiceChannel):
-            if channel.permissions_for(interaction.guild.default_role).view_channel:
-                await channel.set_permissions(interaction.guild.default_role, view_channel=False)
-                for member in channel.members:
-                    await channel.set_permissions(member, view_channel=True)
-                    
-                await interaction.response.send_message(
-                    embed=private_embed,
-                    view=RoomControlView(self.creator_id),
-                    ephemeral=True
+            make_private = channel.permissions_for(interaction.guild.default_role).view_channel
+            overwrites = {
+                interaction.guild.default_role: discord.PermissionOverwrite(view_channel=not make_private),
+                **(
+                    {m: discord.PermissionOverwrite(view_channel=True) for m in channel.members}
+                    if make_private else {}
                 )
-                
-            else:
-                await channel.set_permissions(interaction.guild.default_role, view_channel=True)
-                for member in channel.members:
-                    await channel.set_permissions(member, overwrite=None)
-                    
-                await interaction.response.send_message(
-                    embed=public_embed,
-                    view=RoomControlView(self.creator_id), 
-                    ephemeral=True
-                )
+            }
+            await channel.edit(overwrites=overwrites)
+
+            embed = discord.Embed(
+                title="😶‍🌫️ Room Privacy" if make_private else "🥳 Room Privacy",
+                description=f"This room is now {'private' if make_private else 'public'}.",
+                color=discord.Color.red() if make_private else discord.Color.green()
+            )
+            embed.set_footer(text=owner_tag)
+
+            await interaction.response.send_message(
+                embed=embed,
+                view=RoomControlView(),
+                ephemeral=True
+            )
 
 class CreateCategoryView(discord.ui.View):
     def __init__(self, cog):
